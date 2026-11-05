@@ -1,9 +1,10 @@
 // AI-assisted: see docs/AI_LOG.md #5`
-import React, { Children, createContext, useCallback, useState } from "react";
+import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { validatePersonalData, validateDocumentsData, validateVehicleData, requiresTecnoMecanica } from "../utils/validations"; 
 import { uploadImageToCloudinary } from "../services/cloudinary";
 import { registerDriverInDB, subscribeToDriverStatus } from "../services/driverService";
+
 
 const RegistrationContext = createContext(null);
 
@@ -12,7 +13,7 @@ const STORAGE_KEYS = {
     DRIVER_ID: '@uber_driver_session_id',
 }
 
-export const RegistrationProvider = ({Children}) => {
+export const RegistrationProvider = ({ children }) => {
 
     // 1. Estado de la Pestaña 1: Datos personales
     const [personalData, setPersonalData] = useState({
@@ -96,7 +97,7 @@ export const RegistrationProvider = ({Children}) => {
     }, [driverId]);
 
     //Actualizar un campo de la pestaña 1 Conductor
-    const updatePersonalField = useCallback(async(FieldPath, value) =>{
+    const updatePersonalField = useCallback(async(field, value) =>{
         setPersonalData((prev) => ({...prev, [field]: value}));
         setTouched((prev) => ({...prev, [`personal.${field}`] : true}));
 

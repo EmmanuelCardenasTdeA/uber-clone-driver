@@ -17,9 +17,9 @@ export const registerDriverInDB = async (registrationData) => {
         accountStatus:'pending_approval',
         isAvailable: false,
         personalData:{
-            profilePhotoUrl: personalData.profilePhotoUri,
-            fullname:personalData.fullName.trim(),
-            documentId:driverId,
+            profilePhotoUrl: personalData.profilePhotoUrl || personalData.profilePhotoUri || '',
+            fullName: personalData.fullName.trim(),
+            documentId: driverId,
             phone: personalData.phone.trim(),
             birthDate: personalData.birthDate,
             gender: personalData.gender,
@@ -53,7 +53,7 @@ export const registerDriverInDB = async (registrationData) => {
         },
         mercadoPagoEmail: documents.mercadoPagoEmail.trim().toLowerCase(),
         termsAccepted: Boolean(documents.termsAccepted),
-        acceptedCommissionRate: PRICING_CONFIG.COMMISSION_RATE,
+        acceptedCommissionRate: PRICING_CONFIG.COMMISSION_RATE ?? PRICING_CONFIG.COMISSION_RATE ?? 0.2,
         },
         location: {
             lat: 6.2442,

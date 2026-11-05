@@ -66,7 +66,6 @@ export default function PersonalDataTab({navigation}){
                 onChange={(uri) => updatePersonalField('profilePhotoUrl', uri)}
                 error={getError('profilePhotoUrl')}
             />
-
             <FormInput
                 label="Nombre completo"
                 iconName="person-outline"

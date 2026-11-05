@@ -8,5 +8,5 @@ export const PRICING_CONFIG ={
         xl:1.4,
         premium:1.8,
     },
-    COMISSION_RATE : 0.20, 
+    COMMISSION_RATE: 0.20,
 };

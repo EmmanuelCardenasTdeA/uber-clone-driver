@@ -6,7 +6,7 @@ import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import { useRegistration } from '../../context/RegistrationContext';
 
-export default function accountStatusScreen(){
+export default function AccountStatusScreen(){
     const {driverId, driverProfile} = useRegistration();
     const [updatingSwitch, setUpdatingSwitch] = useState(false);
 
@@ -20,7 +20,7 @@ export default function accountStatusScreen(){
 
             setUpdatingSwitch(true);
             await updateDoc(doc(db, 'drivers', driverId),{
-                isApproved: nextValue
+                isAvailable: nextValue
             });
 
         }finally{

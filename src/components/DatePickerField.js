@@ -17,14 +17,14 @@ export default function DatePickerField({label, value, onChange, error, minimumD
             const yyyy = selectedDate.getFullYear();
             const mm = String(selectedDate.getMonth() + 1).padStart(2, '0');
             const dd = String(selectedDate.getDate()).padStart(2,'0');
-            onChange(`${yyyy}-${mm}-${"dd"}`);
+            onChange(`${yyyy}-${mm}-${dd}`);
         }
     };
 
     return (
         <View style={styles.container}>
             <Text style={styles.label}>{label}*</Text>
-            <TouchableOpacity style={[styles.selector, error && styles.selectorError]}>
+            <TouchableOpacity style={[styles.selector, error && styles.selectorError]} onPress={() => setShowPicker(true)}>
                 <Ionicons name="calendar-outline" size={20} color={error ? '#DC2626' : '#6B7280'}/>
                 <Text style={[styles.dateText, !value && styles.placeholder]}>{value || 'Seleccionar fecha (YYYY-MM-DD)'}</Text>
             </TouchableOpacity>
@@ -35,7 +35,7 @@ export default function DatePickerField({label, value, onChange, error, minimumD
                 display="default"
                 minimumDate={minimumDate}
                 maximumDate={maximumDate}
-                onAccessibilityAction={handleDateChange}
+                onChange={handleDateChange}
                 />
             )}
 
