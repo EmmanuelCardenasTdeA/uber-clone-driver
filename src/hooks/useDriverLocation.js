@@ -10,9 +10,9 @@ const AVAILABILITY_STORAGE_KEY = '@uber_driver_last_availability';
 
 export const useDriverLocation =(driverId, initialIsAvailable = false) =>{
     const[isAvailable, setIsAvailable] = useState(initialIsAvailable);
-    const[location, setLocation] = useState({
+    const [location, setLocation] = useState({
         latitude: 6.2442,
-        logitude: -75.5812,
+        longitude: -75.5812,
     });
     const [locationError, setLocationError] = useState(null);
 
@@ -33,22 +33,30 @@ export const useDriverLocation =(driverId, initialIsAvailable = false) =>{
 
     //obtener ubicacion inicial una  sola vez para centrar el mapa al abrir la pantalla
     useEffect(() => {
+        let isMounted = true;
+
         (async () => {
-            const { status } = await Location.requestForegroundPermissionsAsync();
-            if(status !== 'granted'){
-                if(isMounted){
-                    setLocationError('Permiso de ubicación negado. Activalo para recibir viajes');
+            try {
+                const { status } = await Location.requestForegroundPermissionsAsync();
+                if(status !== 'granted'){
+                    if(isMounted){
+                        setLocationError('Permiso de ubicación negado. Activalo para recibir viajes');
+                    }
+                    return;
                 }
-                return;
-            }
-            const currentPos = await Location.getCurrentPositionAsync({
-                accuracy: Location.Accuracy.Balanced,
-            });
-            if(isMounted && currentPos?.coords){
-                setLocation({
-                    latitude: currentPos.coords.latitude,
-                    longitude: currentPos.coords.longitude,
+                const currentPos = await Location.getCurrentPositionAsync({
+                    accuracy: Location.Accuracy.Balanced,
                 });
+                if(isMounted && currentPos?.coords){
+                    setLocation({
+                        latitude: currentPos.coords.latitude,
+                        longitude: currentPos.coords.longitude,
+                    });
+                }
+            } catch (error) {
+                if (isMounted) {
+                    setLocationError('No se pudo obtener la ubicación actual');
+                }
             }
         })();
         return ()=> {
@@ -89,7 +97,7 @@ export const useDriverLocation =(driverId, initialIsAvailable = false) =>{
                                 lat: latitude,
                                 lng: longitude,
                             },
-                            updateAt: serverTimestamp(),
+                            updatedAt: serverTimestamp(),
                         })
                         
                     } catch (error) {
@@ -120,10 +128,10 @@ export const useDriverLocation =(driverId, initialIsAvailable = false) =>{
 
             try {
                 await AsyncStorage.setItem(AVAILABILITY_STORAGE_KEY, JSON.stringify(nextState));
-                const driverRef = doc(db, 'driver', driverId);
+                const driverRef = doc(db, 'drivers', driverId);
                 await updateDoc (driverRef,{
                     isAvailable: nextState,
-                    updateAt: serverTimestamp(),
+                    updatedAt: serverTimestamp(),
                 });
             } catch (error) {
                 setLocationError('No se pudo cambiar el estado de disponibilidad');

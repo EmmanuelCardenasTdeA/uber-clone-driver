@@ -1,9 +1,9 @@
-import React,{useRef, useEffect} from "react";
-import { View, Text, Switch, StyleSheet, TouchableOpacity } from "react-native";
-import MapView, {Marker} from "react-native-maps";
-import { Ionicons } from "@expo/vector-icons";
-import useRegistration from '../../context/RegistrationContext';
-import { useDriverLocation } from "../../hooks/useDriverLocation";
+import React, { useRef, useEffect } from 'react';
+import { View, Text, Switch, StyleSheet, TouchableOpacity } from 'react-native';
+import MapView, { Marker } from 'react-native-maps';
+import { Ionicons } from '@expo/vector-icons';
+import { useRegistration } from '../../context/RegistrationContext';
+import { useDriverLocation } from '../../hooks/useDriverLocation';
 
 export default function HomeScreen() {
   const { driverId, driverProfile } = useRegistration();
@@ -14,7 +14,7 @@ export default function HomeScreen() {
     Boolean(driverProfile?.isAvailable)
   );
 
-  // Centrar el mapa cuando cambia la coordenada del conductor
+  // Centrar el mapa suavemente cuando cambia la coordenada del conductor
   useEffect(() => {
     if (mapRef.current && location?.latitude && location?.longitude) {
       mapRef.current.animateToRegion(
@@ -137,7 +137,7 @@ export default function HomeScreen() {
       </View>
     </View>
   );
-};
+}
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F3F4F6' },

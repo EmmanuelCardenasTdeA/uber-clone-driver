@@ -40,7 +40,7 @@ export default function DriverDrawer() {
         name="DriverHome"
         component={HomeScreen}
         options={{
-          title: 'Inicio (Mapa)',
+          title: 'Mapa',
           drawerIcon: ({ color, size }) => (
             <Ionicons name="map-outline" size={size} color={color} />
           ),
