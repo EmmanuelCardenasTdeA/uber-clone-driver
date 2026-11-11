@@ -10,7 +10,7 @@ export default function FormInput({
 }){
     return(
         <View style={styles.container}>
-            <Text style={styles.label}>*</Text>
+            <Text style={styles.label}>{label} *</Text>
             <View style={[styles.inputWrapper, error && styles.inputWrapperError]}>
                 {iconName && (
                     <Ionicons name={iconName} size={20} color={error ? '#DC2626' : '#6B7280'} style={styles.icon}/>

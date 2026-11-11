@@ -15,11 +15,6 @@ const GENDER_OPTIONS = [
   { label: 'Otro / Prefiero no decir', value: 'O' },
 ];
 
-const LANGUAGE_OPTIONS = [
-  { label: 'Español (ES)', value: 'es' },
-  { label: 'English (EN)', value: 'en' },
-];
-
 export default function PersonalDataTab({navigation}){
     const {
         personalData,
@@ -124,15 +119,6 @@ export default function PersonalDataTab({navigation}){
                 keyboardType="email-address"
                 autoCapitalize="none"
                 error={getError('email')}
-            />
-
-            <SelectField
-                label="Idioma de la aplicación"
-                iconName="language-outline"
-                selectedValue={personalData.language}
-                onValueChange={(val) => updatePersonalField('language', val)}
-                options={LANGUAGE_OPTIONS}
-                error={getError('language')}
             />
 
             <TouchableOpacity style={styles.nextButton} onPress={handleNextTab}>

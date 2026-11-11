@@ -49,7 +49,7 @@ export default function ImagePickerField({ label, value, onChange, error}){
     
     return (
         <View style={styles.container}>
-            <Text style={styles.label}>*</Text>
+            <Text style={styles.label}>{label} *</Text>
             {value ? (
                 <View style ={styles.previewWrapper}>
                     <Image source={{uri:value}} style={styles.preview}/>
