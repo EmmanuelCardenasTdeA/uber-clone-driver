@@ -75,7 +75,7 @@ Este documento registra las consultas conceptuales, de arquitectura, depuración
 ---
 
 ### Entrada #6
-- Fecha: 2026-11-11
+- Fecha: 2026-11-08
 - Integrante: Emmanuel Cárdenas (EmmanuelCardenasTdeA)
 - Herramienta: Gemini / 
 - Objetivo: Asesoramiento matemático para la función pura `calculateFare` sin errores de punto flotante y diseño del hook de ubicación en tiempo real
@@ -89,7 +89,7 @@ Este documento registra las consultas conceptuales, de arquitectura, depuración
 ---
 
 ### Entrada #7
-- Fecha: 2026-11-11
+- Fecha: 2026-11-09
 - Integrante: Emmanuel Cárdenas (EmmanuelCardenasTdeA)
 - Herramienta: Gemini / 
 - Objetivo: Estructurar la navegación combinada (Stack, Tabs y Drawer) y el control de pantallas según el estado del viaje
