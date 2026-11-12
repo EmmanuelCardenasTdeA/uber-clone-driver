@@ -1,15 +1,6 @@
 // AI-assisted: see docs/AI_LOG.md #5
 import React from "react";
-import {
-  ScrollView,
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-  KeyboardAvoidingView,
-  Platform,
-} from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { ScrollView, View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRegistration } from "../../context/RegistrationContext";
 import FormInput from "../../components/FormInput";
@@ -25,7 +16,6 @@ const GENDER_OPTIONS = [
 ];
 
 export default function PersonalDataTab({navigation}){
-    const insets = useSafeAreaInsets();
     const {
         personalData,
         updatePersonalField,
@@ -48,6 +38,7 @@ export default function PersonalDataTab({navigation}){
             'personal.birthDate': true,
             'personal.gender': true,
             'personal.email': true,
+            'personal.language': true,
         }));
 
         if(isTab1Valid){
@@ -55,19 +46,7 @@ export default function PersonalDataTab({navigation}){
         }
     };
     return (
-        <KeyboardAvoidingView
-            style={{ flex: 1, backgroundColor: '#F3F4F6' }}
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 80}
-        >
-        <ScrollView
-            contentContainerStyle={[
-                styles.container,
-                { paddingBottom: Math.max(insets.bottom + 28, 44) },
-            ]}
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
-        >
+        <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
             <View style={styles.headerBox}>
                 <Ionicons name="person-circle-outline" size={28} color="#111827" />
                 <View style={{ flex: 1 }}>
@@ -141,13 +120,12 @@ export default function PersonalDataTab({navigation}){
                 autoCapitalize="none"
                 error={getError('email')}
             />
-            
+
             <TouchableOpacity style={styles.nextButton} onPress={handleNextTab}>
                 <Text style={styles.nextButtonText}>Continuar a Vehículo</Text>
                 <Ionicons name="arrow-forward-outline" size={20} color="#FFFFFF" />
             </TouchableOpacity>
         </ScrollView>
-        </KeyboardAvoidingView>
     );
 }
 

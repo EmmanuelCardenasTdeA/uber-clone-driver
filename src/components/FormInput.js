@@ -7,23 +7,16 @@ export default function FormInput({
     label, iconName, value, onChangeText, placeholder, error, keyboardType = 'default',
     maxLength,
     autoCapitalize = 'sentences',
-    editable = true,
 }){
     return(
         <View style={styles.container}>
             <Text style={styles.label}>{label} *</Text>
-            <View
-                style={[
-                    styles.inputWrapper,
-                    !editable && styles.inputWrapperDisabled,
-                    error && styles.inputWrapperError,
-                ]}
-            >
+            <View style={[styles.inputWrapper, error && styles.inputWrapperError]}>
                 {iconName && (
                     <Ionicons name={iconName} size={20} color={error ? '#DC2626' : '#6B7280'} style={styles.icon}/>
                 )}
                 <TextInput 
-                    style={[styles.input, !editable && styles.inputDisabled]}
+                    style={styles.input}
                     value={value}
                     onChangeText={onChangeText}
                     placeholder={placeholder}
@@ -31,7 +24,6 @@ export default function FormInput({
                     keyboardType={keyboardType}
                     maxLength={maxLength}
                     autoCapitalize={autoCapitalize}
-                    editable={editable}
                 />
             </View>
             {error && (
@@ -58,10 +50,8 @@ const styles = StyleSheet.create({
     height: 48,
   },
   inputWrapperError: { borderColor: '#DC2626', backgroundColor: '#FEF2F2' },
-  inputWrapperDisabled: { backgroundColor: '#E5E7EB', borderColor: '#D1D5DB' },
   icon: { marginRight: 8 },
   input: { flex: 1, fontSize: 15, color: '#111827' },
-  inputDisabled: { color: '#4B5563' },
   errorRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 },
   errorText: { color: '#DC2626', fontSize: 12 },
 });

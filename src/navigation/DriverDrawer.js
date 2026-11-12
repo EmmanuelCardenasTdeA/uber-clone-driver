@@ -3,8 +3,6 @@ import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { createDrawerNavigator } from "@react-navigation/drawer";
 import { Ionicons } from "@expo/vector-icons";
 import HomeScreen from "../screens/driver/HomeScreen";
-import EarningsScreen from "../screens/driver/EarningsScreen";
-import TripHistoryScreen from "../screens/driver/TripHistoryScreen";
 import { useRegistration } from "../context/RegistrationContext";
 
 
@@ -50,24 +48,38 @@ export default function DriverDrawer() {
       />
       <Drawer.Screen
         name="Earnings"
-        component={EarningsScreen}
         options={{
           title: 'Mis Ganancias',
           drawerIcon: ({ color, size }) => (
             <Ionicons name="cash-outline" size={size} color={color} />
           ),
         }}
-      />
+      >
+        {() => (
+          <PlaceholderScreen
+            title="Ganancias"
+            subtitle="Resumen de hoy, la semana y el mes."
+            icon="bar-chart-outline"
+          />
+        )}
+      </Drawer.Screen>
       <Drawer.Screen
         name="TripHistory"
-        component={TripHistoryScreen}
         options={{
           title: 'Historial de carreras',
           drawerIcon: ({ color, size }) => (
             <Ionicons name="time-outline" size={size} color={color} />
           ),
         }}
-      />
+      >
+        {() => (
+          <PlaceholderScreen
+            title="Historial de carreras"
+            subtitle="Listado con filtros por fecha y método de pago."
+            icon="list-outline"
+          />
+        )}
+      </Drawer.Screen>
       <Drawer.Screen
         name="ProfileConfig"
         options={{
@@ -80,7 +92,7 @@ export default function DriverDrawer() {
         {() => (
           <PlaceholderScreen
             title="Perfil y configuración"
-            subtitle="Datos editables, vehículo y documentos."
+            subtitle="Datos editables, vehículo, documentos e idioma."
             icon="person-circle-outline"
           />
         )}

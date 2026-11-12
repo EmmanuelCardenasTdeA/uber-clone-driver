@@ -1,6 +1,6 @@
 // src/hooks/useDriverLocation.js
 // AI-assisted: see docs/AI_LOG.md #9
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { PermissionsAndroid, Platform, NativeModules } from 'react-native';
 import * as ExpoLocation from 'expo-location';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -86,7 +86,6 @@ export const useDriverLocation = (driverId, initialIsAvailable = false) => {
     longitude: -75.5812,
   });
   const [locationError, setLocationError] = useState(null);
-  const lastSimulatedTimestampRef = useRef(0);
 
   // Solicitar permiso de GPS en Android / iOS
   const requestLocationPermission = useCallback(async () => {
@@ -173,11 +172,6 @@ export const useDriverLocation = (driverId, initialIsAvailable = false) => {
 
       watchId = Geolocation.watchPosition(
         async (position) => {
-          // Si hay una simulación de recorrido en curso, evitar que el GPS estático del emulador regrese el vehículo
-          if (Date.now() - lastSimulatedTimestampRef.current < 20000) {
-            return;
-          }
-
           const { latitude, longitude } = position.coords;
           setLocation({ latitude, longitude });
 
@@ -238,7 +232,6 @@ export const useDriverLocation = (driverId, initialIsAvailable = false) => {
   const updateSimulatedLocation = useCallback(
     async (coords) => {
       if (!coords?.latitude || !coords?.longitude) return;
-      lastSimulatedTimestampRef.current = Date.now();
       setLocation({ latitude: coords.latitude, longitude: coords.longitude });
 
       if (driverId) {

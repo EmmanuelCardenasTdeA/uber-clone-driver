@@ -94,6 +94,10 @@ export const validatePersonalData = (data) => {
     errors.email = 'Ingresa un correo válido con @ y dominio.';
   }
 
+  if (!data.language || !['es', 'en'].includes(data.language)) {
+    errors.language = 'Selecciona un idioma válido (Español / Inglés).';
+  }
+
   return errors;
 };
 
@@ -132,13 +136,12 @@ export const validateVehicleData = (vehicle) => {
 
   const yearStr = String(vehicle.year || '').trim();
   const yearNum = Number(yearStr);
-  const maxAllowedYear = currentYear + 1;
   if (!yearStr) {
     errors.year = 'El año del vehículo es obligatorio.';
   } else if (!/^\d{4}$/.test(yearStr)) {
     errors.year = 'El año debe ser numérico de 4 dígitos.';
-  } else if (yearNum > maxAllowedYear || yearNum < 1990) {
-    errors.year = `El año debe estar entre 1990 y ${maxAllowedYear} (año actual + 1).`;
+  } else if (yearNum > currentYear || yearNum < 1990) {
+    errors.year = `El año no puede ser mayor al año actual (${currentYear}).`;
   }
 
   if (!vehicle.color?.trim()) {

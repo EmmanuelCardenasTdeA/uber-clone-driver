@@ -9,6 +9,7 @@ import { registerDriverInDB, subscribeToDriverStatus } from "../services/driverS
 const RegistrationContext = createContext(null);
 
 const STORAGE_KEYS = {
+    LANGUAGE: '@uber_driver_language',
     DRIVER_ID: '@uber_driver_session_id',
 }
 
@@ -23,6 +24,7 @@ export const RegistrationProvider = ({ children }) => {
         birthDate: '',
         gender: '',
         email: '',
+        language: 'es',  
     });
 
     // 2. Estado de la Pestaña 2: Vehículo
@@ -59,11 +61,17 @@ export const RegistrationProvider = ({ children }) => {
     const [driverId, setDriverId] = useState(null);
     const [driverProfile, setDriverProfile] = useState(null);
 
-    // Cargar sesión guardada en AsyncStorage al iniciar la app
+    // Cargar idioma y sesión guardada en AsyncStorage al iniciar la app
     useEffect(() => {
         const loadPreferences = async () => {
         try {
-            const savedDriverId = await AsyncStorage.getItem(STORAGE_KEYS.DRIVER_ID);
+            const [savedLang, savedDriverId] = await Promise.all([
+            AsyncStorage.getItem(STORAGE_KEYS.LANGUAGE),
+            AsyncStorage.getItem(STORAGE_KEYS.DRIVER_ID),
+            ]);
+            if (savedLang) {
+            setPersonalData((prev) => ({ ...prev, language: savedLang }));
+            }
             if (savedDriverId) {
             setDriverId(savedDriverId);
             }
@@ -93,9 +101,8 @@ export const RegistrationProvider = ({ children }) => {
         setPersonalData((prev) => ({...prev, [field]: value}));
         setTouched((prev) => ({...prev, [`personal.${field}`] : true}));
 
-        // En Colombia el número de licencia de conducción es el mismo número de documento
-        if (field === 'documentId') {
-            setDocuments((prev) => ({ ...prev, licenseNumber: value }));
+        if(field==='language'){
+            await AsyncStorage.setItem(STORAGE_KEYS.LANGUAGE, value);
         }
     }, []);
 
@@ -174,7 +181,6 @@ export const RegistrationProvider = ({ children }) => {
             },
             documents: {
             ...documents,
-            licenseNumber: personalData.documentId || documents.licenseNumber,
             tecnoApplies,
             licensePhotoUrl: uploadedLicensePhoto,
             soatPhotoUrl: uploadedSoatPhoto,

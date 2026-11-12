@@ -1,7 +1,6 @@
 // AI-assisted: see docs/AI_LOG.md #4
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import PersonalDataTab from '../screens/register/PersonalDataTab';
 import VehicleTab from '../screens/register/VehicleTab';
@@ -12,8 +11,6 @@ const Tab = createBottomTabNavigator();
 
 export default function RegistrationTabs() {
   const { isTab1Valid, isTab2Valid, isTab3Valid } = useRegistration();
-  const insets = useSafeAreaInsets();
-  const bottomPadding = Math.max(insets.bottom, 8);
 
   return (
     <Tab.Navigator
@@ -22,12 +19,7 @@ export default function RegistrationTabs() {
         headerTintColor: '#FFFFFF',
         tabBarActiveTintColor: '#111827',
         tabBarInactiveTintColor: '#6B7280',
-        tabBarHideOnKeyboard: true,
-        tabBarStyle: {
-          height: 56 + bottomPadding,
-          paddingBottom: bottomPadding,
-          paddingTop: 6,
-        },
+        tabBarStyle: { height: 62, paddingBottom: 8, paddingTop: 6 },
         tabBarIcon: ({ focused, color, size }) => {
           let iconName;
 

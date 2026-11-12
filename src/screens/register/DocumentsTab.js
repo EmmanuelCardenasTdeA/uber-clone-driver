@@ -7,10 +7,7 @@ import {
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Checkbox from 'expo-checkbox';
 import { Ionicons } from '@expo/vector-icons';
 import { useRegistration } from '../../context/RegistrationContext';
@@ -20,9 +17,7 @@ import ImagePickerField from '../../components/ImagePickerField';
 import DatePickerField from '../../components/DatePickerField';
 
 export default function DocumentsTab() {
-  const insets = useSafeAreaInsets();
   const {
-    personalData,
     vehicle,
     documents,
     updateDocumentsField,
@@ -46,19 +41,7 @@ export default function DocumentsTab() {
   tomorrow.setDate(tomorrow.getDate() + 1);
 
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1, backgroundColor: '#F3F4F6' }}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 80}
-    >
-      <ScrollView
-        contentContainerStyle={[
-          styles.container,
-          { paddingBottom: Math.max(insets.bottom + 28, 44) },
-        ]}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-      >
+    <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
       <View style={styles.headerBox}>
         <Ionicons name="document-text-outline" size={28} color="#111827" />
         <View style={{ flex: 1 }}>
@@ -102,12 +85,11 @@ export default function DocumentsTab() {
       <FormInput
         label="Número de licencia"
         iconName="id-card-outline"
-        value={personalData.documentId || documents.licenseNumber}
+        value={documents.licenseNumber}
         onChangeText={(val) => updateDocumentsField('licenseNumber', val.replace(/[^0-9]/g, ''))}
-        placeholder="Se completa con tu documento de la Pestaña 1"
+        placeholder="Número de licencia"
         keyboardType="numeric"
-        maxLength={10}
-        editable={false}
+        maxLength={15}
         error={getError('licenseNumber')}
       />
       <ImagePickerField
@@ -232,8 +214,7 @@ export default function DocumentsTab() {
           </>
         )}
       </TouchableOpacity>
-      </ScrollView>
-    </KeyboardAvoidingView>
+    </ScrollView>
   );
 }
 
