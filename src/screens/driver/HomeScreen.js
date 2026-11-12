@@ -7,17 +7,23 @@ import {
   StyleSheet,
   TouchableOpacity,
   ActivityIndicator,
+  ScrollView,
+  useWindowDimensions,
 } from 'react-native';
-import MapView, { Marker } from 'react-native-maps';
+import MapView, { Marker, Polyline } from 'react-native-maps';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRegistration } from '../../context/RegistrationContext';
 import { useDriverLocation } from '../../hooks/useDriverLocation';
 import { useTripRequests } from '../../hooks/useTripRequests';
+import { formatPaymentMethodLabel } from '../../services/tripServices';
 import ActiveTripScreen from './ActiveTripScreen';
 
 export default function HomeScreen() {
   const { driverId, driverProfile } = useRegistration();
   const mapRef = useRef(null);
+  const insets = useSafeAreaInsets();
+  const { height: screenHeight } = useWindowDimensions();
 
   const {
     isAvailable,
@@ -38,9 +44,10 @@ export default function HomeScreen() {
     simulateIncomingTrip,
     acceptTrip,
     rejectTrip,
-    markArrivedAtPickup,
-    startTrip,
+    markDriverArriving,
+    startTripWithPassenger,
     finishTrip,
+    confirmTripPayment,
     cancelActiveTrip,
     dismissCompletedSummary,
     dismissFcmBanner,
@@ -48,11 +55,25 @@ export default function HomeScreen() {
     driverId,
     isAvailable,
     driverLocation: location,
+    onSyncDriverLocation: updateSimulatedLocation,
     vehicleCategory: driverProfile?.vehicle?.category || 'economy',
   });
 
-  // Centrar el mapa suavemente cuando cambia la coordenada del conductor
+  // Encuadrar todos los puntos (conductor, recogida y destino) cuando llega una solicitud
   useEffect(() => {
+    if (!activeTrip && incomingRequest?.origin && incomingRequest?.destination && mapRef.current) {
+      const pointsToFit = [
+        incomingRequest.driverLocation || location,
+        incomingRequest.origin,
+        incomingRequest.destination,
+      ];
+      mapRef.current.fitToCoordinates(pointsToFit, {
+        edgePadding: { top: 60, right: 50, bottom: 290, left: 50 },
+        animated: true,
+      });
+      return;
+    }
+
     if (!activeTrip && mapRef.current && location?.latitude && location?.longitude) {
       mapRef.current.animateToRegion(
         {
@@ -64,7 +85,7 @@ export default function HomeScreen() {
         600
       );
     }
-  }, [location.latitude, location.longitude, activeTrip]);
+  }, [location.latitude, location.longitude, activeTrip, incomingRequest?.id]);
 
   const centerMapOnDriver = () => {
     if (mapRef.current && location) {
@@ -80,7 +101,7 @@ export default function HomeScreen() {
     }
   };
 
-  // Si hay un viaje en curso ('accepted', 'arrived', 'in_progress'), mostrar la pantalla de Viaje en Curso
+  // Si hay un viaje en curso ('accepted', 'driver_arriving', 'in_progress', 'completed'), mostrar la pantalla activa
   if (activeTrip) {
     return (
       <ActiveTripScreen
@@ -88,15 +109,18 @@ export default function HomeScreen() {
         driverId={driverId}
         driverLocation={location}
         onUpdateDriverLocation={updateSimulatedLocation}
-        onMarkArrived={markArrivedAtPickup}
-        onStartTrip={startTrip}
+        onMarkDriverArriving={markDriverArriving}
+        onStartTripWithPassenger={startTripWithPassenger}
         onFinishTrip={finishTrip}
+        onConfirmPayment={confirmTripPayment}
         onCancelTrip={cancelActiveTrip}
         actionLoading={actionLoading}
         tripError={tripError}
       />
     );
   }
+
+  const bottomSafePadding = Math.max(insets.bottom + 10, 16);
 
   return (
     <View style={styles.container}>
@@ -150,18 +174,19 @@ export default function HomeScreen() {
         </View>
       )}
 
-      {/* Resumen de último viaje finalizado */}
+      {/* Resumen de último viaje finalizado y pagado */}
       {lastCompletedSummary && (
         <View style={styles.completedBanner}>
           <View style={{ flex: 1 }}>
             <Text style={styles.completedTitle}>
-              ¡Viaje con {lastCompletedSummary.passengerName} finalizado!
+              Viaje con {lastCompletedSummary.passengerName} pagado (
+              {formatPaymentMethodLabel(lastCompletedSummary.paymentMethod)})
             </Text>
             <Text style={styles.completedSub}>
               Tarifa: ${lastCompletedSummary.fare?.toLocaleString('es-CO')} • Comisión 20%: -$
-              {lastCompletedSummary.commission?.toLocaleString('es-CO')} • Ganancia acreditada:{' '}
+              {lastCompletedSummary.commission?.toLocaleString('es-CO')} • Ganancia neta:{' '}
               <Text style={{ fontWeight: '800' }}>
-                +${lastCompletedSummary.driverEarnings?.toLocaleString('es-CO')} COP
+                ${lastCompletedSummary.driverEarnings?.toLocaleString('es-CO')} COP
               </Text>
             </Text>
           </View>
@@ -181,7 +206,7 @@ export default function HomeScreen() {
           latitudeDelta: 0.015,
           longitudeDelta: 0.015,
         }}
-        showsUserLocation={true}
+        showsUserLocation={false}
         showsMyLocationButton={false}
       >
         <Marker
@@ -197,113 +222,173 @@ export default function HomeScreen() {
           </View>
         </Marker>
 
-        {/* Si hay una solicitud entrante, mostrar marcador del punto de recogida */}
+        {/* Si hay una solicitud entrante, mostrar rutas, punto de recogida y destino en el mapa */}
+        {incomingRequest?.pickupCoordinates?.length > 1 && (
+          <Polyline
+            coordinates={incomingRequest.pickupCoordinates}
+            strokeWidth={4}
+            strokeColor="#2563EB"
+          />
+        )}
+
+        {incomingRequest?.routeCoordinates?.length > 1 && (
+          <Polyline
+            coordinates={incomingRequest.routeCoordinates}
+            strokeWidth={4}
+            strokeColor="#16A34A"
+          />
+        )}
+
         {incomingRequest?.origin && (
           <Marker
             coordinate={{
               latitude: incomingRequest.origin.latitude,
               longitude: incomingRequest.origin.longitude,
             }}
-            title={`Pasajero: ${incomingRequest.passengerName}`}
+            title={`Recogida: ${incomingRequest.passengerName}`}
             description={incomingRequest.origin.address}
-            pinColor="#2563EB"
-          />
+          >
+            <View style={styles.originMarker}>
+              <Ionicons name="person" size={15} color="#FFFFFF" />
+            </View>
+          </Marker>
+        )}
+
+        {incomingRequest?.destination && (
+          <Marker
+            coordinate={{
+              latitude: incomingRequest.destination.latitude,
+              longitude: incomingRequest.destination.longitude,
+            }}
+            title="Destino"
+            description={incomingRequest.destination.address}
+          >
+            <View style={styles.destMarker}>
+              <Ionicons name="flag" size={15} color="#FFFFFF" />
+            </View>
+          </Marker>
         )}
       </MapView>
 
-      {/* Botón flotante para centrar cámara */}
-      <TouchableOpacity style={styles.recenterButton} onPress={centerMapOnDriver}>
+      {/* Botón flotante para centrar cámara (ajustado dinámicamente sobre el panel inferior) */}
+      <TouchableOpacity
+        style={[
+          styles.recenterButton,
+          { bottom: (incomingRequest ? 265 : 145) + insets.bottom },
+        ]}
+        onPress={centerMapOnDriver}
+      >
         <Ionicons name="locate" size={24} color="#111827" />
       </TouchableOpacity>
 
       {/* Tarjeta modal de Solicitud Entrante con cuenta regresiva de 15 segundos */}
       {incomingRequest ? (
-        <View style={styles.requestCard}>
-          <View style={styles.requestHeaderRow}>
-            <View style={styles.requestBadge}>
-              <Ionicons name="flash" size={14} color="#FFFFFF" />
-              <Text style={styles.requestBadgeText}>NUEVA SOLICITUD</Text>
+        <View
+          style={[
+            styles.requestCard,
+            {
+              maxHeight: screenHeight * 0.5,
+              paddingBottom: bottomSafePadding,
+            },
+          ]}
+        >
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.requestCardContent}
+          >
+            <View style={styles.requestHeaderRow}>
+              <View style={styles.requestBadge}>
+                <Ionicons name="flash" size={14} color="#FFFFFF" />
+                <Text style={styles.requestBadgeText}>NUEVA SOLICITUD</Text>
+              </View>
+              <View style={styles.timerBadge}>
+                <Ionicons name="time-outline" size={16} color="#DC2626" />
+                <Text style={styles.timerText}>{countdown}s</Text>
+              </View>
             </View>
-            <View style={styles.timerBadge}>
-              <Ionicons name="time-outline" size={16} color="#DC2626" />
-              <Text style={styles.timerText}>{countdown}s</Text>
-            </View>
-          </View>
 
-          <View style={styles.passengerInfoRow}>
-            <Text style={styles.passengerName}>{incomingRequest.passengerName}</Text>
-            <Text style={styles.passengerMeta}>
-              ⭐ {incomingRequest.passengerRating} • {incomingRequest.paymentMethod}
-            </Text>
-          </View>
-
-          <View style={styles.routeDetailsBox}>
-            <View style={styles.routePointRow}>
-              <Ionicons name="radio-button-on" size={16} color="#2563EB" />
-              <Text style={styles.routePointText} numberOfLines={1}>
-                Recogida: {incomingRequest.origin?.address} ({incomingRequest.pickupDistanceKm} km)
+            <View style={styles.passengerInfoRow}>
+              <Text style={styles.passengerName} numberOfLines={1}>
+                {incomingRequest.passengerName}
               </Text>
+              <View style={styles.ratingRow}>
+                <Ionicons name="star" size={14} color="#F59E0B" />
+                <Text style={styles.passengerMeta}>
+                  {incomingRequest.rating ?? incomingRequest.passengerRating} •{' '}
+                  {incomingRequest.category?.toUpperCase()} •{' '}
+                  {formatPaymentMethodLabel(incomingRequest.paymentMethod)}
+                </Text>
+              </View>
             </View>
-            <View style={styles.routePointRow}>
-              <Ionicons name="location" size={16} color="#DC2626" />
-              <Text style={styles.routePointText} numberOfLines={1}>
-                Destino: {incomingRequest.destination?.address} ({incomingRequest.distanceKm} km •{' '}
-                {incomingRequest.durationMin} min)
-              </Text>
-            </View>
-          </View>
 
-          <View style={styles.farePreviewRow}>
-            <View>
-              <Text style={styles.farePreviewLabel}>Tarifa estimada</Text>
-              <Text style={styles.farePreviewTotal}>
-                ${incomingRequest.fare?.toLocaleString('es-CO')} COP
-              </Text>
+            <View style={styles.routeDetailsBox}>
+              <View style={styles.routePointRow}>
+                <Ionicons name="radio-button-on" size={16} color="#2563EB" />
+                <Text style={styles.routePointText} numberOfLines={1}>
+                  Recogida: {incomingRequest.origin?.address} ({incomingRequest.pickupDistanceKm} km)
+                </Text>
+              </View>
+              <View style={styles.routePointRow}>
+                <Ionicons name="location" size={16} color="#DC2626" />
+                <Text style={styles.routePointText} numberOfLines={1}>
+                  Destino: {incomingRequest.destination?.address} ({incomingRequest.distanceKm} km •{' '}
+                  {incomingRequest.durationMin} min)
+                </Text>
+              </View>
             </View>
-            <View style={{ alignItems: 'flex-end' }}>
-              <Text style={styles.farePreviewLabel}>Tu ganancia neta (80%)</Text>
-              <Text style={styles.farePreviewNet}>
-                ${incomingRequest.driverEarnings?.toLocaleString('es-CO')} COP
-              </Text>
+
+            <View style={styles.farePreviewRow}>
+              <View>
+                <Text style={styles.farePreviewLabel}>Tarifa estimada</Text>
+                <Text style={styles.farePreviewTotal}>
+                  ${incomingRequest.fare?.toLocaleString('es-CO')} COP
+                </Text>
+              </View>
+              <View style={{ alignItems: 'flex-end' }}>
+                <Text style={styles.farePreviewLabel}>Tu ganancia neta (80%)</Text>
+                <Text style={styles.farePreviewNet}>
+                  ${incomingRequest.driverEarnings?.toLocaleString('es-CO')} COP
+                </Text>
+              </View>
             </View>
-          </View>
 
-          <View style={styles.requestActionsRow}>
-            <TouchableOpacity
-              style={styles.rejectBtn}
-              onPress={rejectTrip}
-              disabled={actionLoading}
-            >
-              <Ionicons name="close-outline" size={20} color="#DC2626" />
-              <Text style={styles.rejectBtnText}>Rechazar</Text>
-            </TouchableOpacity>
+            <View style={styles.requestActionsRow}>
+              <TouchableOpacity
+                style={styles.rejectBtn}
+                onPress={rejectTrip}
+                disabled={actionLoading}
+              >
+                <Ionicons name="close-outline" size={20} color="#DC2626" />
+                <Text style={styles.rejectBtnText}>Rechazar</Text>
+              </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.acceptBtn}
-              onPress={acceptTrip}
-              disabled={actionLoading}
-            >
-              {actionLoading ? (
-                <ActivityIndicator color="#FFFFFF" />
-              ) : (
-                <>
-                  <Ionicons name="checkmark-outline" size={20} color="#FFFFFF" />
-                  <Text style={styles.acceptBtnText}>Aceptar viaje</Text>
-                </>
-              )}
-            </TouchableOpacity>
-          </View>
+              <TouchableOpacity
+                style={styles.acceptBtn}
+                onPress={acceptTrip}
+                disabled={actionLoading}
+              >
+                {actionLoading ? (
+                  <ActivityIndicator color="#FFFFFF" />
+                ) : (
+                  <>
+                    <Ionicons name="checkmark-outline" size={20} color="#FFFFFF" />
+                    <Text style={styles.acceptBtnText}>Aceptar viaje</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
         </View>
       ) : (
         /* Panel inferior informativo del conductor autorizado */
-        <View style={styles.bottomCard}>
+        <View style={[styles.bottomCard, { paddingBottom: bottomSafePadding }]}>
           <View style={styles.driverRow}>
             <Ionicons name="shield-checkmark" size={24} color="#16A34A" />
             <View style={{ flex: 1 }}>
-              <Text style={styles.driverName}>
+              <Text style={styles.driverName} numberOfLines={1}>
                 {driverProfile?.personalData?.fullName} • {driverProfile?.vehicle?.plate}
               </Text>
-              <Text style={styles.vehicleDetails}>
+              <Text style={styles.vehicleDetails} numberOfLines={1}>
                 {driverProfile?.vehicle?.brand} {driverProfile?.vehicle?.model} • Categoría:{' '}
                 {driverProfile?.vehicle?.category?.toUpperCase()}
               </Text>
@@ -404,10 +489,23 @@ const styles = StyleSheet.create({
   carMarkerActive: {
     backgroundColor: '#16A34A',
   },
+  originMarker: {
+    backgroundColor: '#2563EB',
+    padding: 6,
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+  },
+  destMarker: {
+    backgroundColor: '#DC2626',
+    padding: 6,
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+  },
   recenterButton: {
     position: 'absolute',
     right: 16,
-    bottom: 155,
     backgroundColor: '#FFFFFF',
     width: 48,
     height: 48,
@@ -419,7 +517,7 @@ const styles = StyleSheet.create({
   bottomCard: {
     backgroundColor: '#FFFFFF',
     paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingTop: 14,
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
     elevation: 8,
@@ -457,10 +555,12 @@ const styles = StyleSheet.create({
   requestCard: {
     backgroundColor: '#FFFFFF',
     paddingHorizontal: 16,
-    paddingVertical: 16,
+    paddingTop: 16,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     elevation: 12,
+  },
+  requestCardContent: {
     gap: 10,
   },
   requestHeaderRow: {
@@ -507,6 +607,12 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: '700',
     color: '#111827',
+    flex: 1,
+  },
+  ratingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
   passengerMeta: {
     fontSize: 13,
