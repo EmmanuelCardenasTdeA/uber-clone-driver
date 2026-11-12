@@ -17,6 +17,7 @@ import {
   rejectTripInDB,
   updateTripStatusInDB,
   completeTripInDB,
+  confirmTripPaymentInDB,
 } from '../services/tripServices';
 
 const REQUEST_TIMEOUT_SECONDS = 15;
@@ -43,7 +44,6 @@ try {
   const messagingInstance = getMessagingInstance();
   if (messagingInstance) {
     messagingInstance.setBackgroundMessageHandler(async (remoteMessage) => {
-      // Procesamiento silencioso de nueva solicitud de viaje en background
       return Promise.resolve(remoteMessage);
     });
   }
@@ -52,15 +52,15 @@ try {
 }
 
 /**
- * Hook personalizado useTripRequests:
- * - Configura Firebase Cloud Messaging (@react-native-firebase/messaging) para notificaciones push.
- * - Escucha en tiempo real (Firestore onSnapshot) las solicitudes entrantes y el viaje en curso.
- * - Gestiona el temporizador de 15 segundos para aceptar o rechazar solicitudes.
+ * Hook personalizado obligatorio useTripRequests (Sección 3):
+ * Controla los 7 estados del viaje:
+ * 1. requested -> 2. accepted -> 3. driver_arriving -> 4. in_progress -> 5. completed -> 6. paid (o 7. cancelled)
  */
 export const useTripRequests = ({
   driverId,
   isAvailable,
   driverLocation,
+  onSyncDriverLocation,
   vehicleCategory = 'economy',
 }) => {
   const [incomingRequest, setIncomingRequest] = useState(null);
@@ -113,7 +113,7 @@ export const useTripRequests = ({
     };
   }, [driverId]);
 
-  // 2. Suscripción en tiempo real a Firestore (onSnapshot) para solicitudes y viaje en curso
+  // 2. Suscripción en tiempo real a Firestore (onSnapshot) para solicitudes y estados del viaje
   useEffect(() => {
     if (!driverId) {
       setIncomingRequest(null);
@@ -134,9 +134,9 @@ export const useTripRequests = ({
           ...docSnap.data(),
         }));
 
-        // Prioridad 1: Viaje actualmente en curso ('accepted', 'arrived', 'in_progress')
+        // Prioridad 1: Viaje en curso o pendiente de cobro ('accepted', 'driver_arriving', 'in_progress', 'completed')
         const ongoing = docs.find((t) =>
-          ['accepted', 'arrived', 'in_progress'].includes(t.status)
+          ['accepted', 'driver_arriving', 'in_progress', 'completed'].includes(t.status)
         );
 
         if (ongoing) {
@@ -185,8 +185,8 @@ export const useTripRequests = ({
         if (prev <= 1) {
           clearInterval(timerRef.current);
           timerRef.current = null;
-          // Auto-rechazar por expiración de tiempo
-          rejectTripInDB(incomingRequest.id, 'expired').catch(() => {});
+          // Si llega a cero, la solicitud se rechaza automáticamente ('rejected' - Sección 3)
+          rejectTripInDB(incomingRequest.id).catch(() => {});
           return 0;
         }
         return prev - 1;
@@ -219,38 +219,45 @@ export const useTripRequests = ({
         driverLocation,
         category: vehicleCategory || 'economy',
       });
+      if (created?.driverLocation && onSyncDriverLocation) {
+        onSyncDriverLocation(created.driverLocation);
+      }
       setFcmNotificationBanner(
-        `🔔 Notificación FCM: Nueva solicitud de ${created.passengerName} (${created.origin.address})`
+        `Notificación FCM: Nueva solicitud de ${created.passengerName} (${created.origin.address})`
       );
-    } catch (error) {
+    } catch {
       setTripError('No se pudo generar la solicitud simulada.');
     } finally {
       setActionLoading(false);
     }
-  }, [driverId, isAvailable, driverLocation, vehicleCategory]);
+  }, [driverId, isAvailable, driverLocation, onSyncDriverLocation, vehicleCategory]);
 
-  // Aceptar solicitud entrante
+  // Estado 2 ('accepted'): El conductor acepta la solicitud
   const acceptTrip = useCallback(async () => {
     if (!incomingRequest?.id) return;
     setTripError(null);
     setActionLoading(true);
     try {
-      await acceptTripInDB(incomingRequest.id, driverLocation);
+      const startLoc = incomingRequest.driverLocation || driverLocation;
+      await acceptTripInDB(incomingRequest.id, startLoc);
+      if (startLoc && onSyncDriverLocation) {
+        onSyncDriverLocation(startLoc);
+      }
       setFcmNotificationBanner(null);
     } catch {
       setTripError('No se pudo aceptar el viaje.');
     } finally {
       setActionLoading(false);
     }
-  }, [incomingRequest?.id, driverLocation]);
+  }, [incomingRequest, driverLocation, onSyncDriverLocation]);
 
-  // Rechazar solicitud entrante
+  // Rechazar solicitud entrante ('rejected')
   const rejectTrip = useCallback(async () => {
     if (!incomingRequest?.id) return;
     setTripError(null);
     setActionLoading(true);
     try {
-      await rejectTripInDB(incomingRequest.id, 'rejected');
+      await rejectTripInDB(incomingRequest.id);
       setFcmNotificationBanner(null);
     } catch {
       setTripError('No se pudo rechazar la solicitud.');
@@ -259,60 +266,76 @@ export const useTripRequests = ({
     }
   }, [incomingRequest?.id]);
 
-  // Marcar llegada al punto de recogida ('arrived')
-  const markArrivedAtPickup = useCallback(async () => {
+  // Estado 3 ('driver_arriving'): El conductor va en camino / llega al punto de recogida
+  const markDriverArriving = useCallback(async () => {
     if (!activeTrip?.id) return;
     setTripError(null);
     setActionLoading(true);
     try {
-      await updateTripStatusInDB(activeTrip.id, 'arrived', {
-        arrivedAt: serverTimestamp(),
+      await updateTripStatusInDB(activeTrip.id, 'driver_arriving', {
+        arrivingAt: serverTimestamp(),
       });
     } catch {
-      setTripError('No se pudo actualizar el estado a Llegada.');
+      setTripError('No se pudo actualizar el estado a En camino al punto de recogida.');
     } finally {
       setActionLoading(false);
     }
   }, [activeTrip?.id]);
 
-  // Iniciar viaje con el pasajero a bordo ('in_progress')
-  const startTrip = useCallback(async () => {
+  // Estado 4 ('in_progress'): "Pasajero a bordo" -> la ruta cambia hacia el destino
+  const startTripWithPassenger = useCallback(async () => {
     if (!activeTrip?.id) return;
     setTripError(null);
     setActionLoading(true);
     try {
+      const pickupPoint = activeTrip.origin
+        ? {
+            lat: activeTrip.origin.lat ?? activeTrip.origin.latitude,
+            lng: activeTrip.origin.lng ?? activeTrip.origin.longitude,
+            latitude: activeTrip.origin.latitude ?? activeTrip.origin.lat,
+            longitude: activeTrip.origin.longitude ?? activeTrip.origin.lng,
+          }
+        : null;
       await updateTripStatusInDB(activeTrip.id, 'in_progress', {
+        ...(pickupPoint ? { driverLocation: pickupPoint } : {}),
         startedAt: serverTimestamp(),
       });
+      if (pickupPoint && onSyncDriverLocation) {
+        onSyncDriverLocation(pickupPoint);
+      }
     } catch {
-      setTripError('No se pudo iniciar el viaje.');
+      setTripError('No se pudo iniciar el viaje con el pasajero a bordo.');
     } finally {
       setActionLoading(false);
     }
-  }, [activeTrip?.id]);
+  }, [activeTrip?.id, activeTrip?.origin, onSyncDriverLocation]);
 
-  // Finalizar viaje y acreditar ganancias ('completed')
+  // Estado 5 ('completed'): Finaliza el viaje y calcula tarifa, comisión y ganancia neta
   const finishTrip = useCallback(
     async (tipAmount = 0) => {
       if (!activeTrip?.id || !driverId) return null;
       setTripError(null);
       setActionLoading(true);
       try {
+        const destPoint = activeTrip.destination
+          ? {
+              latitude: activeTrip.destination.latitude ?? activeTrip.destination.lat,
+              longitude: activeTrip.destination.longitude ?? activeTrip.destination.lng,
+            }
+          : null;
+
         const breakdown = await completeTripInDB({
           tripId: activeTrip.id,
-          driverId,
           distanceKm: activeTrip.distanceKm,
           durationMin: activeTrip.durationMin,
           category: activeTrip.category || vehicleCategory || 'economy',
           tip: tipAmount,
         });
-        setLastCompletedSummary({
-          passengerName: activeTrip.passengerName,
-          distanceKm: activeTrip.distanceKm,
-          durationMin: activeTrip.durationMin,
-          ...breakdown,
-          tip: Math.max(0, Math.round(Number(tipAmount) || 0)),
-        });
+
+        if (destPoint && onSyncDriverLocation) {
+          onSyncDriverLocation(destPoint);
+        }
+
         return breakdown;
       } catch {
         setTripError('No se pudo finalizar el viaje.');
@@ -321,13 +344,54 @@ export const useTripRequests = ({
         setActionLoading(false);
       }
     },
-    [activeTrip, driverId, vehicleCategory]
+    [activeTrip, driverId, vehicleCategory, onSyncDriverLocation]
   );
 
-  // Cancelar viaje en curso ('cancelled')
+  // Estado 6 ('paid'): Confirma el pago (Efectivo o Pasarela) y actualiza el saldo del conductor
+  const confirmTripPayment = useCallback(
+    async ({ paymentStatus = 'approved', paymentId = null } = {}) => {
+      if (!activeTrip?.id || !driverId) return false;
+      setTripError(null);
+      setActionLoading(true);
+      try {
+        await confirmTripPaymentInDB({
+          tripId: activeTrip.id,
+          driverId,
+          paymentMethod: activeTrip.paymentMethod,
+          paymentStatus,
+          paymentId,
+          commission: activeTrip.commission,
+          driverEarnings: activeTrip.driverEarnings,
+        });
+
+        setLastCompletedSummary({
+          passengerName: activeTrip.passengerName,
+          paymentMethod: activeTrip.paymentMethod,
+          fare: activeTrip.fare,
+          commission: activeTrip.commission,
+          driverEarnings: activeTrip.driverEarnings,
+          tip: activeTrip.tip || 0,
+        });
+        return true;
+      } catch {
+        setTripError('No se pudo registrar la confirmación del pago.');
+        return false;
+      } finally {
+        setActionLoading(false);
+      }
+    },
+    [activeTrip, driverId]
+  );
+
+  // Estado 7 ('cancelled'): Solo permitido ANTES de 'in_progress' (Sección 3)
   const cancelActiveTrip = useCallback(
-    async (reason = 'Cancelado por el conductor') => {
+    async (reason = 'Cancelado por el conductor antes de abordar') => {
       if (!activeTrip?.id) return;
+      if (['in_progress', 'completed', 'paid'].includes(activeTrip.status)) {
+        setTripError('No se puede cancelar un viaje cuando el pasajero ya está a bordo.');
+        return;
+      }
+
       setTripError(null);
       setActionLoading(true);
       try {
@@ -341,7 +405,7 @@ export const useTripRequests = ({
         setActionLoading(false);
       }
     },
-    [activeTrip?.id]
+    [activeTrip?.id, activeTrip?.status]
   );
 
   const dismissCompletedSummary = useCallback(() => {
@@ -363,9 +427,10 @@ export const useTripRequests = ({
     simulateIncomingTrip,
     acceptTrip,
     rejectTrip,
-    markArrivedAtPickup,
-    startTrip,
+    markDriverArriving,
+    startTripWithPassenger,
     finishTrip,
+    confirmTripPayment,
     cancelActiveTrip,
     dismissCompletedSummary,
     dismissFcmBanner,

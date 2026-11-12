@@ -24,7 +24,6 @@ export const registerDriverInDB = async (registrationData) => {
             birthDate: personalData.birthDate,
             gender: personalData.gender,
             email: personalData.email,
-            language: personalData.language,
         },
         vehicle: {
             category: vehicle.category,
