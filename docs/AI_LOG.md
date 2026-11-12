@@ -129,3 +129,4 @@ Este documento registra las consultas conceptuales, de arquitectura, depuración
 - Aprendizaje: Aprendí a integrar servicios gratuitos de cartografía (OSRM y Nominatim) respetando sus políticas de consumo (llamar al servicio de rutas solo al crear y aceptar el viaje, nunca en cada movimiento) y a sincronizar máquinas de estados con Firestore.
 
 ---
+arreglado??
